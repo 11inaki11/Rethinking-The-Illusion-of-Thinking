@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 import os
 import json # Sigue siendo útil para inspeccionar la respuesta completa si es necesario
+#from HanoiTowersViewers import HanoiVisualizer
 
 # Configura la API
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI")) # Asegúrate de que la variable de entorno esté configurada
@@ -26,6 +27,10 @@ response = client.models.generate_content(
         • The positions are 0-indexed (the leftmost peg is 0).
         • Ensure your final answer includes the complete list of moves in the format: moves = [[disk id, from peg, to peg], ...]
 
+        The current configuration of the problem k, since it may be in the initial state or in an intermediate state.
+        • The current configuration of the problem k, since it may be in the initial state or in an intermediate state.
+        • The desired number of moves p. This parameter indicates how many moves I want you to make to bring us closer to the solution. This is because when the number of disks N is very large, solving the entire problem becomes very complex. Therefore, I don't want you to provide the complete solution, but rather the next p moves that move us toward the goal.
+
         Your response should be just a vector of moves, without any additional text or explanations.
     """,
         # ¡Esta es la forma correcta de solicitar las trazas de pensamiento!
@@ -34,15 +39,15 @@ response = client.models.generate_content(
         )
     ),
     contents=f"""
-    I have a puzzle with $8$ disks of different sizes with Initial configuration:
-    • Peg 0: $8$ (bottom), ... 2, 1 (top)
-    • Peg 1: (empty)
-    • Peg 2: (empty)
+    I have a puzzle with $10$ disks of different sizes with configuration k=[[10, 9, 8, 5, 4], [7, 6, 3], [2, 1]] and I want to make $p=100$ moves to bring us closer to the solution:
+    • Peg 0: 10 (bottom),9,8,5,4 (top)
+    • Peg 1: 7(bottom),6,3 (top)
+    • Peg 2: 2(bottom),1 (top)
 
-    Goal configuration:
+    Goal configuration k=[[],[],[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]]:
     • Peg 0: (empty)
     • Peg 1: (empty)
-    • Peg 2: $8$ (bottom), ... 2, 1 (top)
+    • Peg 2: $10$ (bottom), ... 2, 1 (top)
 
     Rules:
     • Only one disk can be moved at a time.

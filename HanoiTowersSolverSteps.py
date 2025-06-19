@@ -146,7 +146,7 @@ def extract_moves_vector(response_text: str) -> list[list[int]]:
 
 ######TESTING THE FUNCTION######
 N = 8
-p = 200
+p = 50
 
 k_init = [list(range(N, 0, -1)), [], []]
 goal_config = [[], [], list(range(N, 0, -1))]

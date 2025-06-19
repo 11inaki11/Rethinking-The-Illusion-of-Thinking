@@ -1,7 +1,7 @@
 # Hanoi-Towers-LLM
 
 A **Tower of Hanoi solver and visualizer powered by Large Language Models (LLMs)**.  
-`HanoiTowersSolverPorPartes.py` prompts an LLM (tested with Google Gemini 2) to generate the optimal sequence of moves for *n* disks, breaks the solution into smaller chunks to avoid token limits, validates the output, and—optionally—plays the moves with a simple animated viewer.
+`HanoiTowersSolverSteps.py` prompts an LLM (tested with Google Gemini 2) to generate the optimal sequence of moves for *n* disks, breaks the solution into smaller chunks to avoid token limits, validates the output, and—optionally—plays the moves with a simple animated viewer.
 
 > **Research inspiration**  
 > This project is motivated by Apple’s paper *“The Illusion of Thinking”*, which argues that Large Reasoning Models (LRMs) fail on large-disk Hanoi instances due to fundamental reasoning flaws.  
@@ -42,7 +42,7 @@ export GEMINI_API_KEY_HANOI="YOUR_KEY"
 ## Quick Start
 
 ```bash
-python HanoiTowersSolverPorPartes.py --disks 5
+python HanoiTowersSolverSteps.py --disks 5
 ```
 
 | Flag            | Default         | Description                       |
@@ -58,7 +58,7 @@ python HanoiTowersSolverPorPartes.py --disks 5
 ## Example
 
 ```text
-$ python HanoiTowersSolverPorPartes.py -n 4
+$ python HanoiTowersSolverSteps.py -n 4
 
 🧠 Prompting LLM for 4-disk solution… (chunk 1/1)
 ✅ Received 15 moves, validating…
@@ -75,7 +75,7 @@ Result saved to runs/run_2025-06-20_14-22-05.json
 
 ```
 Hanoi-Towers-LLM/
-├── HanoiTowersSolverPorPartes.py   # main CLI script
+├── HanoiTowersSolverSteps.py   # main CLI script
 ├── HanoiTowersViewer.py            # lightweight matplotlib animator
 ├── requirements.txt
 ├── runs/                           # auto-generated logs

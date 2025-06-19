@@ -108,53 +108,45 @@ def ask_hanoi_agent(contents: str) -> str:
 """This function extracts the moves vector from the response text of the LLM.
 It uses regular expressions to find the first occurrence of a list formatted as [[...]] and converts it to a Python list.
 """
+
 def extract_moves_vector(response_text: str) -> list[list[int]]:
     """
-    Extrae y convierte a lista el vector de movimientos tipo [[1,2,3],...] desde un string de respuesta LLM.
-
+    Extrae el bloque de movimientos tipo [[1, 2, 3], ...] desde una salida ruidosa del LLM.
+    Solo mantiene números, comas y corchetes dentro del primer [ y el último ].
+    
     Args:
-        response_text (str): Texto que contiene la respuesta, posiblemente con ruido.
+        response_text (str): Texto completo devuelto por el modelo.
 
     Returns:
-        list[list[int]]: Lista de movimientos limpia y usable.
+        list[list[int]]: Lista limpia de movimientos como objetos Python.
     """
-    # Busca la primera ocurrencia de un bloque que empiece con [[ y termine con ]]
-    match = re.search(r"\[\[.*?\]\]", response_text, re.DOTALL)
-    if not match:
-        raise ValueError("No se encontró un vector de movimientos válido ([[...]]).")
+    start = response_text.find('[')
+    end = response_text.rfind(']')
 
-    vector_str = match.group(0)
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("❌ No se encontró un bloque válido delimitado por [ y ].")
+
+    # Extraer contenido bruto
+    raw_block = response_text[start:end+1]
+
+    # Limpiar: solo permitir dígitos, comas, corchetes y espacios mínimos
+    cleaned_block = re.sub(r"[^\d\[\],]", "", raw_block)
 
     try:
-        moves = ast.literal_eval(vector_str)  # Conversión segura a lista Python
+        moves = ast.literal_eval(cleaned_block)
     except Exception as e:
-        raise ValueError(f"Error al convertir el texto a lista de movimientos: {e}")
-
+        raise ValueError(f"❌ Error al convertir el bloque limpio a lista: {e}")
+    
+    # Validar estructura
     if not (isinstance(moves, list) and all(isinstance(m, list) and len(m) == 3 for m in moves)):
-        raise ValueError("El vector extraído no es una lista válida de movimientos.")
+        raise ValueError("❌ El contenido extraído no es una lista válida de movimientos.")
 
     return moves
 
 
 ######TESTING THE FUNCTION######
-# N=4 # Number of disks
-# k=[[4,3,2,1], [], []]  # Initial configuration
-# p=200  # Number of moves to make in each iteration
-# prompt = build_hanoi_prompt(N=N, k=k, p=p)
-# result = ask_hanoi_agent(prompt)
-# moves = extract_moves_vector(result)
-
-# # Si quieres usarlo después:
-# print("Respuesta extraída (solo vector de movimientos):")
-# print(result)
-
-# viz = HanoiVisualizer(k, moves)
-# viz.animate()
-# final_state = HanoiVisualizer.simulate_moves(k, moves)
-
-# === CONFIGURACIÓN INICIAL ===
-N = 6
-p = 100
+N = 8
+p = 200
 
 k_init = [list(range(N, 0, -1)), [], []]
 goal_config = [[], [], list(range(N, 0, -1))]
@@ -176,11 +168,11 @@ while True:
         # Extraer vector de movimientos
         moves = extract_moves_vector(response_text)
 
-        # Aplicar movimientos y obtener nueva configuración
-        new_config = HanoiVisualizer.simulate_moves(k_current, moves)
-
         # Guardar movimientos acumulados
         total_moves.extend(moves)
+
+        # Aplicar movimientos y obtener nueva configuración
+        new_config = HanoiVisualizer.simulate_moves(k_current, moves)
 
         # Verificar si se alcanzó el objetivo
         if new_config == goal_config:
@@ -196,6 +188,7 @@ while True:
         break
 
 # === VISUALIZACIÓN FINAL ===
+print("\n✅ Secuencia de movimientos obtenida:" + str(total_moves))
 print("\n🎥 Visualizando secuencia completa de movimientos...")
 viz = HanoiVisualizer(k_init, total_moves)
 viz.animate()

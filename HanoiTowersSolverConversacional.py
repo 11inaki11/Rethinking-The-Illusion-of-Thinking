@@ -125,3 +125,4 @@ try:
         turno += 1
 except KeyboardInterrupt:
     print("\nConversación interrumpida por el usuario.")
+

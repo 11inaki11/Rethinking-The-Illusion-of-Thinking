@@ -2,15 +2,64 @@ from google import genai
 from google.genai import types
 import os
 import json # Sigue siendo útil para inspeccionar la respuesta completa si es necesario
-#from HanoiTowersViewers import HanoiVisualizer
+from HanoiTowersViewers import HanoiVisualizer
+import re
+import ast
 
 # Configura la API
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI")) # Asegúrate de que la variable de entorno esté configurada
 
-response = client.models.generate_content(
-    model="gemini-2.5-pro-preview-06-05", # O "gemini-2.5-flash-preview-06-05" para el modelo Flash
-    config=types.GenerateContentConfig(
-        system_instruction=f"""
+#####FUNCTION FOR BUILDING THE PROMPT#####
+"""
+This function builds a prompt for the Tower of Hanoi puzzle, including the current configuration of pegs and the goal configuration.
+It formats the pegs and the goal in a readable way, ensuring that the disks are described with their positions and sizes.
+The prompt also includes the rules of the game and the number of moves
+"""
+def build_hanoi_prompt(N: int, k: list[list[int]], p: int) -> str:
+    def format_peg(peg_index: int, peg: list[int]) -> str:
+        if not peg:
+            return f"    • Peg {peg_index}: (empty)"
+        elif len(peg) == 1:
+            return f"    • Peg {peg_index}: {peg[0]} (top)"
+        else:
+            elements = ",".join(str(d) for d in peg[:-1])
+            return f"    • Peg {peg_index}: {peg[0]} (bottom)," + ",".join(str(d) for d in peg[1:-1]) + f",{peg[-1]} (top)"
+
+    peg_descriptions = "\n".join(format_peg(i, peg) for i, peg in enumerate(k))
+    goal_list = list(range(N, 0, -1))
+    goal_str = f"    • Peg 0: (empty)\n    • Peg 1: (empty)\n    • Peg 2: $" + f"{goal_list[0]}$ (bottom), ..." + f" {goal_list[-1]} (top)"
+
+    prompt = f"""
+    I have a puzzle with ${N}$ disks of different sizes with configuration k={k} and I want to make ${p}$ moves to bring us closer to the solution:
+{peg_descriptions}
+
+    Goal configuration k=[[],[],{goal_list}]:
+{goal_str}
+
+    Rules:
+    • Only one disk can be moved at a time.
+    • Only the top disk from any stack can be moved.
+    • A larger disk may not be placed on top of a smaller disk. Find the sequence of moves to transform the initial configuration into the goal configuration.
+    """
+    return prompt
+
+
+######FUNCTION FOR ASKING THE AGENT#####
+"""
+This function interacts with the Gemini AI model to solve the Tower of Hanoi puzzle.
+It sends a prompt with the current configuration and the number of moves to make, and processes the response.
+The response includes the thought process and the final answer, which is a list of moves to be made.
+"""
+
+def ask_hanoi_agent(contents: str) -> str:
+    # Configura el cliente
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
+
+    # Solicita respuesta del modelo
+    response = client.models.generate_content(
+        model="gemini-2.5-pro-preview-06-05",
+        config=types.GenerateContentConfig(
+            system_instruction="""
         You are a helpful assistant. Solve this puzzle for me.
         There are three pegs and n disks of different sizes stacked on the first peg. The disks are numbered from 1 (smallest) to n (largest). Disk moves in this puzzle should follow:
         1. Only one disk can be moved at a time.
@@ -32,39 +81,121 @@ response = client.models.generate_content(
         • The desired number of moves p. This parameter indicates how many moves I want you to make to bring us closer to the solution. This is because when the number of disks N is very large, solving the entire problem becomes very complex. Therefore, I don't want you to provide the complete solution, but rather the next p moves that move us toward the goal.
 
         Your response should be just a vector of moves, without any additional text or explanations.
-    """,
-        # ¡Esta es la forma correcta de solicitar las trazas de pensamiento!
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=True
-        )
-    ),
-    contents=f"""
-    I have a puzzle with $10$ disks of different sizes with configuration k=[[10, 9, 8, 5, 4], [7, 6, 3], [2, 1]] and I want to make $p=100$ moves to bring us closer to the solution:
-    • Peg 0: 10 (bottom),9,8,5,4 (top)
-    • Peg 1: 7(bottom),6,3 (top)
-    • Peg 2: 2(bottom),1 (top)
+        """,
+            thinking_config=types.ThinkingConfig(include_thoughts=True)
+        ),
+        contents=contents
+    )
 
-    Goal configuration k=[[],[],[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]]:
-    • Peg 0: (empty)
-    • Peg 1: (empty)
-    • Peg 2: $10$ (bottom), ... 2, 1 (top)
+    # Procesamiento de respuesta
+    final_answer = ""
+    for part in response.candidates[0].content.parts:
+        if not part.text:
+            continue
+        if part.thought:
+            print("Thought summary:")
+            print(part.text)
+            print()
+        else:
+            print("Answer:")
+            print(part.text)
+            print()
+            final_answer += part.text  # Almacena respuesta útil
 
-    Rules:
-    • Only one disk can be moved at a time.
-    • Only the top disk from any stack can be moved.
-    • A larger disk may not be placed on top of a smaller disk. Find the sequence of moves to transform the initial configuration into the goal configuration.
+    return final_answer
+
+#####FUNCTION FOR EXTRACTING MOVES VECTOR#####
+"""This function extracts the moves vector from the response text of the LLM.
+It uses regular expressions to find the first occurrence of a list formatted as [[...]] and converts it to a Python list.
+"""
+def extract_moves_vector(response_text: str) -> list[list[int]]:
     """
-)
+    Extrae y convierte a lista el vector de movimientos tipo [[1,2,3],...] desde un string de respuesta LLM.
 
-# Ahora, itera sobre las partes de la respuesta para imprimir el razonamiento y la respuesta.
-for part in response.candidates[0].content.parts:
-    if not part.text: # Salta partes vacías
-        continue
-    if part.thought:
-        print("Thought summary:")
-        print(part.text) # El texto asociado con el pensamiento
-        print()
-    else:
-        print("Answer:")
-        print(part.text) # La parte de la respuesta final
-        print()
+    Args:
+        response_text (str): Texto que contiene la respuesta, posiblemente con ruido.
+
+    Returns:
+        list[list[int]]: Lista de movimientos limpia y usable.
+    """
+    # Busca la primera ocurrencia de un bloque que empiece con [[ y termine con ]]
+    match = re.search(r"\[\[.*?\]\]", response_text, re.DOTALL)
+    if not match:
+        raise ValueError("No se encontró un vector de movimientos válido ([[...]]).")
+
+    vector_str = match.group(0)
+
+    try:
+        moves = ast.literal_eval(vector_str)  # Conversión segura a lista Python
+    except Exception as e:
+        raise ValueError(f"Error al convertir el texto a lista de movimientos: {e}")
+
+    if not (isinstance(moves, list) and all(isinstance(m, list) and len(m) == 3 for m in moves)):
+        raise ValueError("El vector extraído no es una lista válida de movimientos.")
+
+    return moves
+
+
+######TESTING THE FUNCTION######
+# N=4 # Number of disks
+# k=[[4,3,2,1], [], []]  # Initial configuration
+# p=200  # Number of moves to make in each iteration
+# prompt = build_hanoi_prompt(N=N, k=k, p=p)
+# result = ask_hanoi_agent(prompt)
+# moves = extract_moves_vector(result)
+
+# # Si quieres usarlo después:
+# print("Respuesta extraída (solo vector de movimientos):")
+# print(result)
+
+# viz = HanoiVisualizer(k, moves)
+# viz.animate()
+# final_state = HanoiVisualizer.simulate_moves(k, moves)
+
+# === CONFIGURACIÓN INICIAL ===
+N = 6
+p = 100
+
+k_init = [list(range(N, 0, -1)), [], []]
+goal_config = [[], [], list(range(N, 0, -1))]
+
+k_current = k_init.copy()
+total_moves = []
+iteration = 0
+
+while True:
+    iteration += 1
+    print(f"\n🔄 Iteración {iteration} | Discos = {N} | p = {p}")
+    try:
+        # Construir el prompt
+        prompt = build_hanoi_prompt(N=N, k=k_current, p=p)
+
+        # Preguntar al LLM
+        response_text = ask_hanoi_agent(prompt)
+
+        # Extraer vector de movimientos
+        moves = extract_moves_vector(response_text)
+
+        # Aplicar movimientos y obtener nueva configuración
+        new_config = HanoiVisualizer.simulate_moves(k_current, moves)
+
+        # Guardar movimientos acumulados
+        total_moves.extend(moves)
+
+        # Verificar si se alcanzó el objetivo
+        if new_config == goal_config:
+            print("🎯 ¡Configuración objetivo alcanzada!")
+            break
+
+        # Preparar para siguiente iteración
+        k_current = new_config
+
+    except ValueError as e:
+        print(f"❌ Se ha producido un error en la iteración {iteration}: {e}")
+        print("🛑 El experimento se detiene aquí debido a un movimiento inválido.")
+        break
+
+# === VISUALIZACIÓN FINAL ===
+print("\n🎥 Visualizando secuencia completa de movimientos...")
+viz = HanoiVisualizer(k_init, total_moves)
+viz.animate()

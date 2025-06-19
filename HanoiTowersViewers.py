@@ -38,21 +38,28 @@ class HanoiVisualizer:
     def _validate_and_apply_move(self, move, step):
         disk, from_peg, to_peg = move
 
-        # Validación básica de índices
         if not (0 <= from_peg < self.num_pegs) or not (0 <= to_peg < self.num_pegs):
-            raise ValueError(f"Invalid peg index in move {step}: {move}")
+            print(f"⛔ Invalid peg index at step {step}: {move}")
+            self.failed_move = step
+            self.failed_disk = disk
+            return False
 
-        # Verificar que el disco está en el tope del from_peg
         if not self.state[from_peg] or self.state[from_peg][-1] != disk:
-            raise ValueError(f"Invalid move at step {step}: disk {disk} is not on top of peg {from_peg}")
+            print(f"⛔ Invalid move at step {step}: disk {disk} is not on top of peg {from_peg}")
+            self.failed_move = step
+            self.failed_disk = disk
+            return False
 
-        # Verificar que no se coloca sobre un disco más pequeño
         if self.state[to_peg] and self.state[to_peg][-1] < disk:
-            raise ValueError(f"Invalid move at step {step}: cannot place disk {disk} on smaller disk {self.state[to_peg][-1]}")
+            print(f"⛔ Invalid move at step {step}: cannot place disk {disk} on smaller disk {self.state[to_peg][-1]}")
+            self.failed_move = step
+            self.failed_disk = disk
+            return False
 
-        # Realizar el movimiento
         self.state[from_peg].pop()
         self.state[to_peg].append(disk)
+        return True
+
 
     def _draw_state(self, step):
         import matplotlib.pyplot as plt
@@ -93,7 +100,11 @@ class HanoiVisualizer:
                 x_center = peg_x_positions[peg_idx]
                 y_bottom = level * disk_height
                 disk_width = min_disk_width + (disk - 1) * scale_factor
-                color = self.colors[disk % len(self.colors)]
+                if hasattr(self, 'failed_disk') and disk == self.failed_disk:
+                    color = 'red'
+                else:
+                    color = self.colors[disk % len(self.colors)]
+
                 self.ax.add_patch(patches.Rectangle(
                     (x_center - disk_width / 2, y_bottom),
                     disk_width,
@@ -128,12 +139,15 @@ class HanoiVisualizer:
 
         try:
             for i, move in enumerate(self.moves):
-                self._validate_and_apply_move(move, i + 1)
+                valid = self._validate_and_apply_move(move, i + 1)
                 self._draw_state(step=i + 1)
+                if not valid:
+                    print("\nLa figura muestra el estado justo antes del error. El disco problemático está en rojo.")
+                    break
 
-            # Animación completada correctamente
             plt.ioff()
             plt.show()
+
 
         except Exception as e:
             print("\n⛔ Error en la animación:\n", e)
@@ -180,10 +194,10 @@ class HanoiVisualizer:
 
 
 
-# === EJEMPLO USO ===
-# initial_state = [[5,4,3, 2, 1], [], []]
-# moves = [[1, 0, 2], [2, 0, 1], [1, 2, 1], [3, 0, 2], [1, 1, 0], [2, 1, 2], [1, 0, 2], [4, 0, 1], [1, 2, 1], [2, 2, 0], [1, 1, 0], [3, 2, 1], [1, 0, 2], [2, 0, 1], [1, 2, 1], [5, 0, 2], [1, 1, 0], [2, 1, 2], [1, 0, 2], [3, 1, 0]]
+#=== EJEMPLO USO ===
+# initial_state = [[8,7,6,5,4,3, 2, 1], [], []]
+# moves = [[1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [6, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [7, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [5, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [6, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [8, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [6, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [5, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [7, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [6, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2]]
 
 # viz = HanoiVisualizer(initial_state, moves)
-# final_state = HanoiVisualizer.simulate_moves(initial_state, moves)
 # viz.animate()
+# final_state = HanoiVisualizer.simulate_moves(initial_state, moves)

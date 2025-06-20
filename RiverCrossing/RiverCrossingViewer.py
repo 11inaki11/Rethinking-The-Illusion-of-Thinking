@@ -61,25 +61,32 @@ class RiverCrossingVisualizer:
     def _draw_state(self, step, highlight=None):
         self.ax.clear()
         self.ax.set_xlim(0, 10)
-        self.ax.set_ylim(0, 6)
+
+        rect_height = min(0.3, 5.0 / (2 * self.N))
+        y_base = 5.0
+        y_max = y_base + 0.5 if self.N <= 8 else 2 * self.N * rect_height + 0.5
+        self.ax.set_ylim(0, y_max)
         self.ax.axis('off')
         self.ax.set_title(f"Step {step}", fontsize=16)
 
         for i, person in enumerate(sorted(self.left_bank)):
             color = 'red' if highlight and person in highlight else (
-                     'lightgray' if highlight else self.colors[person])
-            self.ax.add_patch(patches.Rectangle((0.5, 5 - 0.4 * i), 2, 0.3, color=color))
-            self.ax.text(1.5, 5 - 0.4 * i + 0.15, person, ha='center', va='center')
+                    'lightgray' if highlight else self.colors[person])
+            y_pos = y_base - i * rect_height
+            self.ax.add_patch(patches.Rectangle((0.5, y_pos), 2, rect_height, color=color))
+            self.ax.text(1.5, y_pos + rect_height / 2, person, ha='center', va='center', fontsize=8)
 
         for i, person in enumerate(sorted(self.right_bank)):
             color = 'red' if highlight and person in highlight else (
-                     'lightgray' if highlight else self.colors[person])
-            self.ax.add_patch(patches.Rectangle((7.5, 5 - 0.4 * i), 2, 0.3, color=color))
-            self.ax.text(8.5, 5 - 0.4 * i + 0.15, person, ha='center', va='center')
+                    'lightgray' if highlight else self.colors[person])
+            y_pos = y_base - i * rect_height
+            self.ax.add_patch(patches.Rectangle((7.5, y_pos), 2, rect_height, color=color))
+            self.ax.text(8.5, y_pos + rect_height / 2, person, ha='center', va='center', fontsize=8)
 
+        # Draw boat
         bx = 3.0 if self.boat_side == 'left' else 6.0
+        self.ax.add_patch(patches.Rectangle((bx, y_base / 2), 1, 0.5, color='saddlebrown'))
 
-        self.ax.add_patch(patches.Rectangle((bx, 3), 1, 0.5, color='saddlebrown'))
 
     def animate(self, frame_delay=2):
         os.makedirs("videos", exist_ok=True)
@@ -127,22 +134,12 @@ class RiverCrossingVisualizer:
 
 # # Example usage:
 # # Parámetros del problema
-# N = 3  # Número de actores/agentes
-# k = 2  # Capacidad de la barca
+# N = 12  # Número de actores/agentes
+# k = 4  # Capacidad de la barca
 
 # # Secuencia de movimientos de ejemplo válida para N=3 y k=2
 # # Nota: esta es una secuencia simple y puede no ser óptima
-# moves = [
-#     ['A_1', 'a_1'],    # Cruzan actor 1 y su agente
-#     ['A_1'],           # Vuelve A_1
-#     ['A_1', 'A_2'],    # Cruzan A_1 y A_2
-#     ['A_1'],           # Vuelve A_1
-#     ['A_1', 'a_2'],    # Cruzan A_1 y a_2
-#     ['a_2'],           # Vuelve a_2
-#     ['a_2', 'a_3'],    # Cruzan a_2 y a_3
-#     ['a_2'],           # Vuelve a_2
-#     ['a_2', 'A_3']     # Cruzan a_2 y A_3
-# ]
+# moves = [["A_1","a_1","A_2","a_2"],["A_1","a_1"],["A_3","a_3","A_4","a_4"],["A_2","a_2"],["A_5","a_5","A_6","a_6"],["A_3","a_3"],["A_7","a_7","A_8","a_8"],["A_4","a_4"],["A_9","a_9","A_10","a_10"],["A_5","a_5"],["A_11","a_11","A_12","a_12"],["A_6","a_6"],["A_1","a_1","A_2","a_2"],["A_7","a_7"],["A_3","a_3","A_4","a_4"],["A_8","a_8"],["A_5","a_5","A_6","a_6"],["A_9","a_9"],["A_7","a_7","A_8","a_8"],["A_10","a_10"],["A_9","a_9","A_10","a_10"]]
 
 # # Crear visualizador y animar
 # viz = RiverCrossingVisualizer(N, k, moves)

@@ -100,7 +100,7 @@ def extract_solution_from_text(text: str) -> List[List[str]]:
         raise ValueError(f"❌ No se pudo evaluar la lista: {e}")
 
 
-N=7
+N=100
 k=4
 # Paso 1: Construir el prompt para N actores/agentes y k capacidad del bote
 prompt = build_river_crossing_prompt(N=N, k=k)

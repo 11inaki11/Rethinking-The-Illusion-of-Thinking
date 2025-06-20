@@ -209,62 +209,75 @@ def extract_moves_vector(response_text: str) -> list[list[int]]:
 
 ########################################### Example usage ###################################################
 # Parámetros iniciales
-N = 7
-p = 100
+N = 10
+p = 200
 k_actual = [list(range(N, 0, -1)), [], []]
 k_objetivo = [[], [], list(range(N, 0, -1))]
 total_moves = []
 turn = 0  # 0: chat_a, 1: chat_b
 
-# Enviar mensaje inicial al primer agente usando el prompt completo
-prompt_inicial = build_hanoi_prompt(N=N, k=k_actual, p=p)
+# ─── 2. Variables de control ─────────────────────────────────────
+turn = 0                  # 0 -> A, 1 -> B
+last_resp_a = None
+last_resp_b = None
+
+# ─── 3. Primer mensaje SOLO al agente A (no hay colega previo) ───
+prompt_inicial = build_hanoi_prompt(N, k_actual, p)   # tu helper
 chat_a.send_message(prompt_inicial)
 
-# Bucle de interacción por turnos
+# ─── 4. Bucle por turnos con paso de contexto ────────────────────
 while True:
-    print(f"\n🔁 Turno del modelo {'A' if turn == 0 else 'B'}")
+    current_chat   = chat_a if turn == 0 else chat_b
+    other_last_msg = last_resp_b if turn == 0 else last_resp_a
+    agent_label    = "A" if turn == 0 else "B"
 
-    # Construir mensaje corto con el estado actual
-    msg_turno = f"""
-The current configuration is: {k_actual}
-Please provide the next {p} moves to bring us closer to the solution.
-Just answer with the list of moves.
-"""
+    # 4.1 Construir prompt completo
+    if other_last_msg:
+        prompt = (
+            f"Last moves made by your colleague:\n{other_last_msg}\n\n"
+            f"The current configuration is: {k_actual}\n"
+            f"Please provide the next {p} moves to bring us closer to the solution.\n"
+            f"Just answer with the list of moves."
+        )
+    else:  # primer turno de B
+        prompt = (
+            f"The current configuration is: {k_actual}\n"
+            f"Please provide the next {p} moves to bring us closer to the solution.\n"
+            f"Just answer with the list of moves."
+        )
 
-    # Enviar mensaje al modelo correspondiente
-    # Enviar mensaje al modelo correspondiente
+    # 4.2 Enviar y mostrar respuesta
     try:
-        response = (chat_a if turn == 0 else chat_b).send_message(msg_turno)
-        print(f"\n🧠 Respuesta cruda del modelo {'A' if turn == 0 else 'B'}:\n{response.text}\n")
+        response = current_chat.send_message(prompt)
+        print(f"\n🧠 Respuesta del modelo {agent_label}:\n{response.text}\n")
     except Exception as e:
-        print(f"❌ Error al invocar al modelo: {e}")
+        print("❌ Error al invocar el modelo:", e)
         break
 
+    # 4.3 Guardar la respuesta del agente actual
+    if turn == 0:
+        last_resp_a = response.text
+    else:
+        last_resp_b = response.text
 
-    # Extraer movimientos del texto
+    # 4.4 Procesar la lista de movimientos y actualizar tablero
     try:
-        moves = extract_moves_vector(response.text)
-    except Exception as e:
-        print(f"❌ Error al extraer movimientos: {e}")
-        break
-
-    # Aplicar movimientos y actualizar estado
-    try:
+        moves = extract_moves_vector(response.text)       # tu helper
         k_actual = HanoiVisualizer.simulate_moves(k_actual, moves)
     except Exception as e:
-        print(f"⚠️ Movimiento inválido detectado: {e}")
+        print("⚠️  Problema con los movimientos:", e)
+        total_moves.extend(moves)
+        print("✔️  Estado actualizado:", k_actual)
         break
 
-    # Acumular movimientos
     total_moves.extend(moves)
-    print(f"✔️ Movimientos aplicados. Estado actual: {k_actual}")
+    print("✔️  Estado actualizado:", k_actual)
 
-    # Verificar si se ha alcanzado el objetivo
     if k_actual == k_objetivo:
         print("🎯 ¡Objetivo alcanzado!")
         break
 
-    # Cambiar turno
+    # 4.5 Cambiar de turno
     turn = 1 - turn
 
 # Visualización final

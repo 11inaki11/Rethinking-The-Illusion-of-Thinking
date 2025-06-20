@@ -11,6 +11,9 @@ class HanoiVisualizer:
         self.num_pegs = 3
         self.colors = self._generate_pastel_colors()
         self.max_disk = max(disk for peg in initial_state for disk in peg)
+        self.failed_move = None
+        self.failed_disk = None
+
         if len(self.colors) < self.max_disk + 1:
             raise ValueError(f"Not enough colors for {self.max_disk} disks.")
         self._validate_initial_state()
@@ -100,10 +103,14 @@ class HanoiVisualizer:
                 x_center = peg_x_positions[peg_idx]
                 y_bottom = level * disk_height
                 disk_width = min_disk_width + (disk - 1) * scale_factor
-                if hasattr(self, 'failed_disk') and disk == self.failed_disk:
-                    color = 'red'
+                if self.failed_disk is not None:
+                    if disk == self.failed_disk:
+                        color = 'red'
+                    else:
+                        color = 'lightgray'
                 else:
                     color = self.colors[disk % len(self.colors)]
+
 
                 self.ax.add_patch(patches.Rectangle(
                     (x_center - disk_width / 2, y_bottom),
@@ -127,33 +134,60 @@ class HanoiVisualizer:
         self.ax.axis('off')
         self.ax.set_title(f"Step {step}", fontsize=16, pad=10)
 
+        self.fig.subplots_adjust(top=0.88, bottom=0.05)
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        time.sleep(0.03) 
+        time.sleep(0.01) 
 
-    def animate(self):
+    def animate(self, frame_delay=0.03):
         import matplotlib.pyplot as plt
+        from matplotlib.animation import FFMpegWriter
+        import os
 
+        # Crear carpeta "videos" si no existe
+        os.makedirs("videos", exist_ok=True)
+
+        # Preguntar nombre del archivo
+        filename = input("🎥 Nombre del archivo de vídeo (sin extensión): ").strip()
+        save_path = f"videos/{filename}.mp4"
+
+        fps = round(1 / frame_delay)
+
+        # Preparar figura
+        self.fig, self.ax = plt.subplots(figsize=(14, 5))
+        self.ax.set_xlim(0, 14)
+        self.ax.set_ylim(0, 5)
+        self.ax.axis('off')
         plt.ion()
-        self._draw_state(step=0)
+        self.fig.show()
+        self.fig.canvas.draw()
 
-        try:
+        # Preparar grabador de video
+        writer = FFMpegWriter(fps=fps, metadata=dict(artist='HanoiVisualizer'), bitrate=1800)
+
+        with writer.saving(self.fig, save_path, dpi=200):
+            self._draw_state(step=0)
+            writer.grab_frame()
+            time.sleep(frame_delay)
+
             for i, move in enumerate(self.moves):
                 valid = self._validate_and_apply_move(move, i + 1)
-                self._draw_state(step=i + 1)
+
                 if not valid:
-                    print("\nLa figura muestra el estado justo antes del error. El disco problemático está en rojo.")
+                    print("\n⛔ Movimiento inválido detectado. El disco problemático está en rojo; los demás en gris.")
+                    self._draw_state(step=i + 1)  # Dibujar con el disco fallido ya establecido
+                    writer.grab_frame()           # Capturar el frame con colores especiales
+                    time.sleep(10 * frame_delay)
                     break
+                else:
+                    self._draw_state(step=i + 1)
+                    writer.grab_frame()
+                    time.sleep(frame_delay)
 
-            plt.ioff()
-            plt.show()
 
-
-        except Exception as e:
-            print("\n⛔ Error en la animación:\n", e)
-            print("\nLa figura permanecerá abierta para que puedas analizar el estado actual.")
-            plt.ioff()
-            plt.show()  # Bloqueante: mantiene la figura abierta tras el error
+        print(f"\n✅ Vídeo guardado como: {save_path}")
+        plt.ioff()
+        plt.show()  # mantiene la ventana abierta al terminar
 
 
     @staticmethod
@@ -196,7 +230,7 @@ class HanoiVisualizer:
 
 #=== EJEMPLO USO ===
 # initial_state = [[8,7,6,5,4,3, 2, 1], [], []]
-# moves = [[1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [6, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [7, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [5, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [6, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [8, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [6, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [5, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [7, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [6, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2]]
+# moves = [[1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [6, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [7, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [5, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [6, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [4, 2, 1], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [8, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [4, 1, 0], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [5, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [6, 1, 0], [1, 2, 1], [2, 2, 0], [1, 1, 0], [3, 2, 1], [1, 0, 2], [2, 0, 1], [1, 2, 1], [4, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [3, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [5, 2, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 0, 2], [1, 1, 0], [2, 1, 2], [1, 0, 2], [4, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [3, 2, 0], [1, 1, 2], [2, 1, 0], [1, 2, 0], [7, 1, 2], [1, 0, 1], [2, 0, 2], [1, 1, 2], [3, 0, 1], [1, 2, 0], [2, 2, 1], [1, 0, 1], [4, 0, 2]]
 
 # viz = HanoiVisualizer(initial_state, moves)
 # viz.animate()

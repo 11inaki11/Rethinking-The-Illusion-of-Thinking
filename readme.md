@@ -7,17 +7,6 @@ A **Tower of Hanoi solver and visualizer powered by Large Language Models (LLMs)
 > This project is motivated by Apple’s paper *“The Illusion of Thinking”*, which argues that Large Reasoning Models (LRMs) fail on large-disk Hanoi instances due to fundamental reasoning flaws.  
 > Here we **probe an alternative hypothesis**: that apparent failures stem primarily from **context-window/token limitations rather than true reasoning deficits**. Our “por partes” chunking strategy lets us disentangle the two factors empirically.
 
----
-
-## Features
-
-- 🔮 **LLM-driven planning** – Uses your API key to obtain the optimal move list.  
-- 🛠️ **Automatic parsing & validation** – Converts the LLM’s text into `[[disk,from,to], …]` vectors, checks legality, and re-prompts on error.  
-- 🎞️ **Live visualization** – Optional `HanoiVisualizer` window shows each move in real time.  
-- 💾 **JSON logging** – Saves every run (`run_YYYY-MM-DD_HH-MM-SS.json`) with parameters, raw LLM response, parsed moves, and timing.  
-- 🕹️ **CLI interface** – Choose disk count, LLM model, temperature, and visual mode from the command line.
-
----
 
 ## Installation
 

@@ -145,8 +145,8 @@ def extract_moves_vector(response_text: str) -> list[list[int]]:
 
 
 ######TESTING THE FUNCTION######
-N = 8
-p = 50
+N = 10 # Number of disks
+p = 100 # Number of moves to make in each iteration
 
 k_init = [list(range(N, 0, -1)), [], []]
 goal_config = [[], [], list(range(N, 0, -1))]

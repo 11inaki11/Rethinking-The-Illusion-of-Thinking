@@ -116,4 +116,4 @@ Replace `GEMINI_API_KEY_HANOI` with the name of the environment variable that st
 
 A demonstration of the experiments can be viewed below:
 
-![Demo Video](Rethinking%20the%20Illusion%20of%20Thinking.mp4)
+[![Demo Video](https://img.youtube.com/vi/8yBV5w_Ubuo/hqdefault.jpg)](https://www.youtube.com/watch?v=8yBV5w_Ubuo)

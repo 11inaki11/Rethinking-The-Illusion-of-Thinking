@@ -172,16 +172,16 @@ def ask_hanoi_agent(contents: str) -> str:
 It uses regular expressions to find the first occurrence of a list formatted as [[...]] and converts it to a Python list.
 """
 
-def extract_moves_vector(response_text: str) -> list[list[int]]:
+def extract_moves_vector(response_text: str) -> list[list[str]]:
     """
-    Extrae el bloque de movimientos tipo [[1, 2, 3], ...] desde una salida ruidosa del LLM.
-    Solo mantiene números, comas y corchetes dentro del primer [ y el último ].
-    
+    Extrae el bloque de movimientos tipo [["A_2", "a_2"], ...] desde una salida ruidosa del LLM.
+    Solo mantiene comillas, letras, dígitos, comas y corchetes dentro del primer [ y el último ].
+
     Args:
         response_text (str): Texto completo devuelto por el modelo.
 
     Returns:
-        list[list[int]]: Lista limpia de movimientos como objetos Python.
+        list[list[str]]: Lista limpia de movimientos como objetos Python.
     """
     start = response_text.find('[')
     end = response_text.rfind(']')
@@ -192,20 +192,19 @@ def extract_moves_vector(response_text: str) -> list[list[int]]:
     # Extraer contenido bruto
     raw_block = response_text[start:end+1]
 
-    # Limpiar: solo permitir dígitos, comas, corchetes y espacios mínimos
-    cleaned_block = re.sub(r"[^\d\[\],]", "", raw_block)
+    # Limpiar: permitir letras, dígitos, comillas, guiones bajos, comas y corchetes
+    cleaned_block = re.sub(r"[^\w\[\]\",]", "", raw_block)
 
     try:
         moves = ast.literal_eval(cleaned_block)
     except Exception as e:
         raise ValueError(f"❌ Error al convertir el bloque limpio a lista: {e}")
     
-    # Validar estructura
-    if not (isinstance(moves, list) and all(isinstance(m, list) and len(m) == 3 for m in moves)):
-        raise ValueError("❌ El contenido extraído no es una lista válida de movimientos.")
+    # Validar estructura: listas de listas de strings
+    if not (isinstance(moves, list) and all(isinstance(m, list) and all(isinstance(x, str) for x in m) for m in moves)):
+        raise ValueError("❌ El contenido extraído no es una lista válida de movimientos (listas de strings).")
 
     return moves
-
 
 ########################################### Example usage ###################################################
 # Parámetros iniciales

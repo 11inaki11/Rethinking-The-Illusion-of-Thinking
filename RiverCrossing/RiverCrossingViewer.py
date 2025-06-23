@@ -130,6 +130,30 @@ class RiverCrossingVisualizer:
         plt.ioff()
         plt.show()
 
+        def is_valid_solution(self) -> bool:
+            # Reiniciar el estado
+            self.left_bank = set([f'a_{i+1}' for i in range(self.N)] + [f'A_{i+1}' for i in range(self.N)])
+            self.right_bank = set()
+            self.boat_side = 'left'
+            self.failed_move_index = None
+            self.failed_people = []
+
+            for i, move in enumerate(self.moves):
+                if not self._validate_move(move):
+                    self.failed_move_index = i
+                    return False
+
+                self._apply_move(move)
+
+                if not self._validate_state():
+                    self.failed_move_index = i
+                    return False
+
+            # Verificar si todos han cruzado
+            expected = set([f'a_{i+1}' for i in range(self.N)] + [f'A_{i+1}' for i in range(self.N)])
+            return self.right_bank == expected
+
+
 
 
 # # Example usage:

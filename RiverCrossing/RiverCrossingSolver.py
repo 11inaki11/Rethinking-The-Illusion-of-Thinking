@@ -3,9 +3,10 @@ import re
 from typing import List
 import google.generativeai as genai
 from RiverCrossingViewer import RiverCrossingVisualizer
+import pandas as pd
 
 # CONFIGURA TU API KEY
-genai.configure(api_key=os.getenv("GEMINI_API_KEY_RIVER"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
 
 
 def build_river_crossing_prompt(N: int, k: int) -> str:
@@ -47,12 +48,21 @@ def build_river_crossing_prompt(N: int, k: int) -> str:
 
 
 
-def call_gemini_model(prompt_text: str) -> str:
-    """
-    Llama al modelo Gemini con un prompt dado y una system instruction fija.
-    Devuelve el texto completo generado por el modelo.
-    """
-    system_instruction = (
+import os
+import pandas as pd
+from datetime import datetime
+import google.generativeai as genai
+
+def call_gemini_model(
+    prompt_text: str,
+    N: int,
+    k: int,
+    csv_path: str = "tokens_river.csv",
+    model_name: str = "gemini-2.5-pro-preview-06-05"
+) -> str:
+    model = genai.GenerativeModel(
+        model_name=model_name,
+        system_instruction=(
         "You are a helpful assistant. Solve this puzzle for me. You can represent actors with a_1, a_2, ... "
         "and agents with A_1, A_2, ... . Your solution must be a list of boat moves where each move indicates "
         "the people on the boat. For example, if there were two actors and two agents, you should return: "
@@ -62,14 +72,42 @@ def call_gemini_model(prompt_text: str) -> str:
         "include the corresponding complete list of boat moves. • The list shouldn’t have comments. • Ensure your "
         "final answer also includes the complete list of moves for final solution."
     )
-
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-pro-preview-06-05",
-        system_instruction=system_instruction
     )
-
     response = model.generate_content(prompt_text)
+    usage = response.usage_metadata
+
+    # Mostrar en pantalla
+    #print(f"Metadata: {usage}")
+    print(f"Prompt:  {usage.prompt_token_count} tokens")
+    print(f"Salida:  {usage.candidates_token_count} tokens")
+    print(f"Total:   {usage.total_token_count} tokens")
+
+    # Preparar datos CSV
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    col_name = f"N{N}_k{k}_{timestamp}"
+    rows = ["tokens_prompt", "tokens_candidates", "tokens_thoughts", "tokens_total","results"]
+    values = [
+        usage.prompt_token_count,
+        usage.candidates_token_count,
+        getattr(usage, "thoughts_token_count", 0),
+        usage.total_token_count,
+        "ok"
+    ]
+
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, index_col=0)
+        # Optionally ensure all rows exist
+        df = df.reindex(index=rows)
+    else:
+        df = pd.DataFrame(index=rows)
+
+    df[col_name] = values
+    df.to_csv(csv_path)
+
     return response.text
+
+
+import json
 
 def extract_solution_from_text(text: str) -> List[List[str]]:
     """
@@ -100,14 +138,15 @@ def extract_solution_from_text(text: str) -> List[List[str]]:
         raise ValueError(f"❌ No se pudo evaluar la lista: {e}")
 
 
-N=100
-k=4
+
+N=5 # Number of jealous couples
+k=3 # Capacity of the boat
 # Paso 1: Construir el prompt para N actores/agentes y k capacidad del bote
 prompt = build_river_crossing_prompt(N=N, k=k)
 print(f"Prompt generado:\n{prompt}\n")
 
 # Paso 2: Llamar al modelo Gemini con ese prompt
-respuesta = call_gemini_model(prompt)
+respuesta = call_gemini_model(prompt,N,k)
 print(f"Respuesta del modelo:\n{respuesta}\n")
 
 # Paso 3: Extraer la solución (lista de movimientos) del texto generado

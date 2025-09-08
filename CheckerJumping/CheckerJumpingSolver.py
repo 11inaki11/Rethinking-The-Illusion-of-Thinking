@@ -11,7 +11,7 @@ from datetime import datetime
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
 
 # Parámetro configurable: Número de checkers por color
-N = 2  # Cambia este valor para probar con diferentes N (ej. 1, 3, etc.)
+N = 5  # Cambia este valor para probar con diferentes N (ej. 1, 3, etc.)
 
 #####FUNCTION FOR EXTRACTING MOVES VECTOR#####
 def extract_moves_vector(response_text: str) -> list[list]:

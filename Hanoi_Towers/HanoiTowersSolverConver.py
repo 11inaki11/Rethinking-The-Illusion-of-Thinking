@@ -5,10 +5,13 @@ import re, json
 from HanoiTowersViewers import HanoiVisualizer
 from HanoiTowersViewers import HanoiVisualizer
 import ast
+from datetime import datetime
+import csv
+
 
 
 # Configura la API con tu clave
-genai.configure(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY_RIVER"))
 
 # Inicializa los modelos generativos con instrucciones de sistema
 model_a = genai.GenerativeModel(
@@ -172,16 +175,16 @@ def ask_hanoi_agent(contents: str) -> str:
 It uses regular expressions to find the first occurrence of a list formatted as [[...]] and converts it to a Python list.
 """
 
-def extract_moves_vector(response_text: str) -> list[list[str]]:
+def extract_moves_vector(response_text: str) -> list[list[int]]:
     """
-    Extrae el bloque de movimientos tipo [["A_2", "a_2"], ...] desde una salida ruidosa del LLM.
-    Solo mantiene comillas, letras, dígitos, comas y corchetes dentro del primer [ y el último ].
+    Extrae el bloque de movimientos tipo [[1, 0, 2], ...] desde una salida ruidosa del LLM.
+    Solo mantiene dígitos, comas y corchetes dentro del primer [ y el último ].
 
     Args:
         response_text (str): Texto completo devuelto por el modelo.
 
     Returns:
-        list[list[str]]: Lista limpia de movimientos como objetos Python.
+        list[list[int]]: Lista limpia de movimientos como objetos Python.
     """
     start = response_text.find('[')
     end = response_text.rfind(']')
@@ -189,97 +192,168 @@ def extract_moves_vector(response_text: str) -> list[list[str]]:
     if start == -1 or end == -1 or end <= start:
         raise ValueError("❌ No se encontró un bloque válido delimitado por [ y ].")
 
-    # Extraer contenido bruto
     raw_block = response_text[start:end+1]
-
-    # Limpiar: permitir letras, dígitos, comillas, guiones bajos, comas y corchetes
-    cleaned_block = re.sub(r"[^\w\[\]\",]", "", raw_block)
+    cleaned_block = re.sub(r"[^\d\[\],]", "", raw_block)
 
     try:
         moves = ast.literal_eval(cleaned_block)
     except Exception as e:
         raise ValueError(f"❌ Error al convertir el bloque limpio a lista: {e}")
     
-    # Validar estructura: listas de listas de strings
-    if not (isinstance(moves, list) and all(isinstance(m, list) and all(isinstance(x, str) for x in m) for m in moves)):
-        raise ValueError("❌ El contenido extraído no es una lista válida de movimientos (listas de strings).")
+    if not (isinstance(moves, list) and all(isinstance(m, list) and len(m) == 3 and all(isinstance(x, int) for x in m) for m in moves)):
+        raise ValueError("❌ El contenido extraído no es una lista válida de movimientos (listas de enteros).")
 
     return moves
 
 ########################################### Example usage ###################################################
-# Parámetros iniciales
-N = 10
-p = 200
-k_actual = [list(range(N, 0, -1)), [], []]
-k_objetivo = [[], [], list(range(N, 0, -1))]
-total_moves = []
-turn = 0  # 0: chat_a, 1: chat_b
+def run_hanoi_experiment(N=4, p=10):
+    # Parámetros iniciales
+    # N = 4
+    # p = 10
+    k_actual = [list(range(N, 0, -1)), [], []]
+    k_objetivo = [[], [], list(range(N, 0, -1))]
+    total_moves = []
+    turn = 0  # 0: chat_a, 1: chat_b
 
-# ─── 2. Variables de control ─────────────────────────────────────
-turn = 0                  # 0 -> A, 1 -> B
-last_resp_a = None
-last_resp_b = None
+    # ─── 2. Variables de control ─────────────────────────────────────
+    turn = 0                  # 0 -> A, 1 -> B
+    last_resp_a = None
+    last_resp_b = None
 
-# ─── 3. Primer mensaje SOLO al agente A (no hay colega previo) ───
-prompt_inicial = build_hanoi_prompt(N, k_actual, p)   # tu helper
-chat_a.send_message(prompt_inicial)
+    # ─── 3. Primer mensaje SOLO al agente A (no hay colega previo) ───
+    prompt_inicial = build_hanoi_prompt(N, k_actual, p)   # tu helper
+    chat_a.send_message(prompt_inicial)
 
-# ─── 4. Bucle por turnos con paso de contexto ────────────────────
-while True:
-    current_chat   = chat_a if turn == 0 else chat_b
-    other_last_msg = last_resp_b if turn == 0 else last_resp_a
-    agent_label    = "A" if turn == 0 else "B"
+    prompt_tokens = []
+    output_tokens = []
+    total_tokens = []
+    success = False
 
-    # 4.1 Construir prompt completo
-    if other_last_msg:
-        prompt = (
-            f"Last moves made by your colleague:\n{other_last_msg}\n\n"
-            f"The current configuration is: {k_actual}\n"
-            f"Please provide the next {p} moves to bring us closer to the solution.\n"
-            f"Just answer with the list of moves."
-        )
-    else:  # primer turno de B
-        prompt = (
-            f"The current configuration is: {k_actual}\n"
-            f"Please provide the next {p} moves to bring us closer to the solution.\n"
-            f"Just answer with the list of moves."
-        )
+    # ─── 4. Bucle por turnos con paso de contexto ────────────────────
+    while True:
+        current_chat   = chat_a if turn == 0 else chat_b
+        other_last_msg = last_resp_b if turn == 0 else last_resp_a
+        agent_label    = "A" if turn == 0 else "B"
 
-    # 4.2 Enviar y mostrar respuesta
-    try:
-        response = current_chat.send_message(prompt)
-        print(f"\n🧠 Respuesta del modelo {agent_label}:\n{response.text}\n")
-    except Exception as e:
-        print("❌ Error al invocar el modelo:", e)
-        break
+        # 4.1 Construir prompt completo
+        if other_last_msg:
+            prompt = (
+                f"Last moves made by your colleague:\n{other_last_msg}\n\n"
+                f"The current configuration is: {k_actual}\n"
+                f"Please provide the next {p} moves to bring us closer to the solution.\n"
+                f"Just answer with the list of moves."
+            )
+        else:  # primer turno de B
+            prompt = (
+                f"The current configuration is: {k_actual}\n"
+                f"Please provide the next {p} moves to bring us closer to the solution.\n"
+                f"Just answer with the list of moves."
+            )
 
-    # 4.3 Guardar la respuesta del agente actual
-    if turn == 0:
-        last_resp_a = response.text
-    else:
-        last_resp_b = response.text
+        # 4.2 Enviar y mostrar respuesta
+        try:
+            response = current_chat.send_message(prompt)
+            print(f"\n🧠 Respuesta del modelo {agent_label}:\n{response.text}\n")
 
-    # 4.4 Procesar la lista de movimientos y actualizar tablero
-    try:
-        moves = extract_moves_vector(response.text)       # tu helper
-        k_actual = HanoiVisualizer.simulate_moves(k_actual, moves)
-    except Exception as e:
-        print("⚠️  Problema con los movimientos:", e)
+            # Extraer tokens
+            usage = response.usage_metadata
+            prompt_tokens.append(usage.prompt_token_count)
+            output_tokens.append(usage.candidates_token_count)
+            total_tokens.append(usage.total_token_count)
+
+        except Exception as e:
+            print("❌ Error al invocar el modelo:", e)
+            break
+
+        # 4.3 Guardar la respuesta del agente actual
+        if turn == 0:
+            last_resp_a = response.text
+        else:
+            last_resp_b = response.text
+
+        # 4.4 Procesar la lista de movimientos y actualizar tablero
+        try:
+            moves = extract_moves_vector(response.text)       # tu helper
+            k_actual = HanoiVisualizer.simulate_moves(k_actual, moves)
+        except Exception as e:
+            print("⚠️  Problema con los movimientos:", e)
+            total_moves.extend(moves)
+            print("✔️  Estado actualizado:", k_actual)
+            break
+
         total_moves.extend(moves)
         print("✔️  Estado actualizado:", k_actual)
-        break
 
-    total_moves.extend(moves)
-    print("✔️  Estado actualizado:", k_actual)
+        if k_actual == k_objetivo:
+            success = True
+            print("🎯 ¡Objetivo alcanzado!")
+            break
 
-    if k_actual == k_objetivo:
-        print("🎯 ¡Objetivo alcanzado!")
-        break
+        # 4.5 Cambiar de turno
+        turn = 1 - turn
 
-    # 4.5 Cambiar de turno
-    turn = 1 - turn
+    # Visualización final
+    print(f"\n✅ Total de movimientos realizados: {len(total_moves)}")
+    viz = HanoiVisualizer([[i for i in range(N, 0, -1)], [], []], total_moves)
+    #viz.animate()
 
-# Visualización final
-print(f"\n✅ Total de movimientos realizados: {len(total_moves)}")
-viz = HanoiVisualizer([[i for i in range(N, 0, -1)], [], []], total_moves)
-viz.animate()
+    # ─── GUARDAR RESULTADOS EN CSV ──────────────────────────────
+    results_value = 'ok' if success else 'fail'
+    max_iters = 10
+    prompt_tokens += [''] * (max_iters - len(prompt_tokens))
+    output_tokens += [''] * (max_iters - len(output_tokens))
+    total_tokens += [''] * (max_iters - len(total_tokens))
+
+    prompt_sum = sum([t for t in prompt_tokens if isinstance(t, int)])
+    output_sum = sum([t for t in output_tokens if isinstance(t, int)])
+    total_sum = sum([t for t in total_tokens if isinstance(t, int)])
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    experiment_name = f"N{N}_p{p}_{timestamp}"
+
+    headers = ['Name'] + \
+            [f"tokens_prompt_iter{i+1}" for i in range(max_iters)] + \
+            [f"tokens_candidates_iter{i+1}" for i in range(max_iters)] + \
+            [f"tokens_total_iter{i+1}" for i in range(max_iters)] + \
+            ['tokens_prompt_sum', 'tokens_candidates_sum', 'tokens_total_sum','results']
+
+    row = [experiment_name] + prompt_tokens + output_tokens + total_tokens + [prompt_sum, output_sum, total_sum, results_value]
+
+
+    os.makedirs("results", exist_ok=True)
+    csv_path = os.path.join("results", "hanoi_token_usage_conver.csv")
+
+    file_exists = os.path.exists(csv_path)
+    with open(csv_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(headers)
+        writer.writerow(row)
+
+    print(f"\n📄 Resultados guardados en: {csv_path}")
+
+
+# print("🚀 Iniciando experimento de la Torre de Hanoi con N=5 p=30...")
+# for i in range(10):
+#     print(f"\n🚀 Lanzando experimento {i+1}/10")
+#     run_hanoi_experiment(N=5, p=30)
+
+# print("🚀 Iniciando experimento de la Torre de Hanoi con N=7 p=60...")
+# for i in range(5):
+#     print(f"\n🚀 Lanzando experimento {i+1}/10")
+#     run_hanoi_experiment(N=7, p=60)
+
+print("🚀 Iniciando experimento de la Torre de Hanoi con N=8 p=100...")
+for i in range(3):
+    print(f"\n🚀 Lanzando experimento {i+1}/10")
+    run_hanoi_experiment(N=8, p=100)
+
+# print("🚀 Iniciando experimento de la Torre de Hanoi con N=9 p=150...")
+# for i in range(5):
+#     print(f"\n🚀 Lanzando experimento {i+1}/10")
+#     run_hanoi_experiment(N=9, p=150)
+
+# print("🚀 Iniciando experimento de la Torre de Hanoi con N=10 p=200...")
+# for i in range(5):
+#     print(f"\n🚀 Lanzando experimento {i+1}/10")
+#     run_hanoi_experiment(N=10, p=200)

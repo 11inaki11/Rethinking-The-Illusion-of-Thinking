@@ -98,6 +98,18 @@ legend_elements = [
 
 ax1.legend(handles=legend_elements, loc='upper left', fontsize=12)
 
+import os
+os.makedirs("results", exist_ok=True)
+
+# Guardar success rates en CSV
+success_df = pd.DataFrame({
+    "config": labels,
+    "success_rate_percent": [round(ok * 100, 2) for ok in ok_percentages]
+})
+
+success_df.to_csv("results/river_success_rate.csv", index=False)
+
+
 plt.tight_layout()
 plt.savefig("river_results.jpeg", dpi=300)
 plt.show()

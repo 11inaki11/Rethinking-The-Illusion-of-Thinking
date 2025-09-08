@@ -87,7 +87,6 @@ def ask_hanoi_agent(contents: str) -> str:
         contents=contents
     )
 
-    # Procesamiento de respuesta
     final_answer = ""
     for part in response.candidates[0].content.parts:
         if not part.text:
@@ -100,9 +99,9 @@ def ask_hanoi_agent(contents: str) -> str:
             print("Answer:")
             print(part.text)
             print()
-            final_answer += part.text  # Almacena respuesta útil
+            final_answer += part.text
 
-    return final_answer
+    return final_answer, response.usage_metadata
 
 #####FUNCTION FOR EXTRACTING MOVES VECTOR#####
 """This function extracts the moves vector from the response text of the LLM.
@@ -145,8 +144,8 @@ def extract_moves_vector(response_text: str) -> list[list[int]]:
 
 
 ######TESTING THE FUNCTION######
-N = 15 # Number of disks
-p = 500 # Number of moves to make in each iteration
+N = 4 # Number of disks
+p = 10 # Number of moves to make in each iteration
 
 k_init = [list(range(N, 0, -1)), [], []]
 goal_config = [[], [], list(range(N, 0, -1))]
@@ -154,6 +153,12 @@ goal_config = [[], [], list(range(N, 0, -1))]
 k_current = k_init.copy()
 total_moves = []
 iteration = 0
+
+prompt_tokens = []
+output_tokens = []
+total_tokens = []
+success = False
+
 
 while True:
     iteration += 1
@@ -163,7 +168,10 @@ while True:
         prompt = build_hanoi_prompt(N=N, k=k_current, p=p)
 
         # Preguntar al LLM
-        response_text = ask_hanoi_agent(prompt)
+        response_text, usage = ask_hanoi_agent(prompt)
+        prompt_tokens.append(usage.prompt_token_count)
+        output_tokens.append(usage.candidates_token_count)
+        total_tokens.append(usage.total_token_count)
 
         # Extraer vector de movimientos
         moves = extract_moves_vector(response_text)
@@ -176,6 +184,7 @@ while True:
 
         # Verificar si se alcanzó el objetivo
         if new_config == goal_config:
+            success = True
             print("🎯 ¡Configuración objetivo alcanzada!")
             break
 
@@ -191,4 +200,50 @@ while True:
 print("\n✅ Secuencia de movimientos obtenida:" + str(total_moves))
 print("\n🎥 Visualizando secuencia completa de movimientos...")
 viz = HanoiVisualizer(k_init, total_moves)
-viz.animate()
+# viz.animate()
+
+results_value = 'ok' if success else 'fail'
+
+import csv
+
+# Nombre del experimento
+from datetime import datetime
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+experiment_name = f"N{N}_p{p}_{timestamp}"
+
+# Número máximo de iteraciones registrables
+max_iters = 10
+
+# Rellenar con valores vacíos si hay menos de 10 iteraciones
+prompt_tokens += [''] * (max_iters - len(prompt_tokens))
+output_tokens += [''] * (max_iters - len(output_tokens))
+total_tokens += [''] * (max_iters - len(total_tokens))
+
+# Sumas totales
+prompt_sum = sum([t for t in prompt_tokens if isinstance(t, int)])
+output_sum = sum([t for t in output_tokens if isinstance(t, int)])
+total_sum = sum([t for t in total_tokens if isinstance(t, int)])
+
+# Encabezado
+headers = ['Name'] + \
+          [f"tokens_prompt_iter{i+1}" for i in range(max_iters)] + \
+          [f"tokens_candidates_iter{i+1}" for i in range(max_iters)] + \
+          [f"tokens_total_iter{i+1}" for i in range(max_iters)] + \
+          ['tokens_prompt_sum', 'tokens_candidates_sum', 'tokens_total_sum','results']
+
+# Fila de datos
+row = [experiment_name] + prompt_tokens + output_tokens + total_tokens + [prompt_sum, output_sum, total_sum, results_value]
+
+# Guardar en CSV
+os.makedirs("results", exist_ok=True)
+csv_path = os.path.join("results", "hanoi_token_usage.csv")
+
+file_exists = os.path.exists(csv_path)
+with open(csv_path, mode='a', newline='') as file:
+    writer = csv.writer(file)
+    if not file_exists:
+        writer.writerow(headers)
+    writer.writerow(row)
+
+
+print(f"\n📄 Resultados guardados en: {csv_path}")

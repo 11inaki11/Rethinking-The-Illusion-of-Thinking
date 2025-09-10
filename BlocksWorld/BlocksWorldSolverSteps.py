@@ -11,8 +11,8 @@ from datetime import datetime
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
 
 # Parámetros configurables
-N = 5  # Número de bloques (usar números pequeños para stepwise)
-p = 5  # Número de pasos por iteración
+N = 20  # Número de bloques (usar números pequeños para stepwise)
+p = 25  # Número de pasos por iteración
 
 #####FUNCTION FOR BUILDING THE PROMPT#####
 def build_blocks_prompt(current_state: list, goal_state: list, N: int, p: int) -> str:

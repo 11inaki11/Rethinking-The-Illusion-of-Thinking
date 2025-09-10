@@ -12,7 +12,7 @@ from datetime import datetime
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI")) # Asegúrate de que la variable de entorno esté configurada
 
 # Parámetro configurable: Número de discos
-N = 4  # Cambia este valor para probar con diferentes N (ej. 3, 5, etc.)
+N = 10 # Cambia este valor para probar con diferentes N (ej. 3, 5, etc.)
 
 #####FUNCTION FOR EXTRACTING MOVES VECTOR#####
 """This function extracts the moves vector from the response text of the LLM.
@@ -118,18 +118,20 @@ try:
     moves = extract_moves_vector(final_answer)
     print("Movimientos extraídos:", moves)
     
-    # Simular movimientos
+    # Simular movimientos usando la misma lógica que HanoiTowersSolverSteps.py
     final_config = HanoiVisualizer.simulate_moves(k_init, moves)
     print("Configuración final simulada:", final_config)
     
+    # Verificar si se alcanzó el objetivo (igual que en HanoiTowersSolverSteps.py)
     if final_config == goal_config:
         success = True
-        print("🎯 ¡Objetivo alcanzado!")
+        print("🎯 ¡Configuración objetivo alcanzada!")
     else:
         print("❌ La configuración final no coincide con el objetivo.")
         
 except ValueError as e:
-    print(f"❌ Error al procesar movimientos: {e}")
+    print(f"❌ Se ha producido un error al procesar movimientos: {e}")
+    print("🛑 El experimento se detiene aquí debido a un movimiento inválido.")
 
 # Extraer uso de tokens
 usage = response.usage_metadata
@@ -137,7 +139,7 @@ prompt_tokens = usage.prompt_token_count
 output_tokens = usage.candidates_token_count
 total_tokens = usage.total_token_count
 
-# Guardar resultados en CSV
+# Guardar resultados en CSV (como en HanoiTowersSolverSteps.py)
 results_value = 'ok' if success else 'fail'
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 experiment_name = f"N{N}_{timestamp}"

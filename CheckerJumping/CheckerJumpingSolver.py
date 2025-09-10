@@ -11,7 +11,7 @@ from datetime import datetime
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_HANOI"))
 
 # Parámetro configurable: Número de checkers por color
-N = 5  # Cambia este valor para probar con diferentes N (ej. 1, 3, etc.)
+N = 13  # Cambia este valor para probar con diferentes N (ej. 1, 3, etc.)
 
 #####FUNCTION FOR EXTRACTING MOVES VECTOR#####
 def extract_moves_vector(response_text: str) -> list[list]:
@@ -23,8 +23,20 @@ def extract_moves_vector(response_text: str) -> list[list]:
     raw_block = match.group(0).split('=')[1].strip()
     print(f"DEBUG: raw_block = {raw_block}")  # Debug
     
+    # Remover líneas que empiecen con # (comentarios)
+    lines = raw_block.split('\n')
+    cleaned_lines = [line for line in lines if not line.strip().startswith('#')]
+    cleaned_block = '\n'.join(cleaned_lines).strip()
+    
+    # Remover cualquier texto después del último ]
+    end = cleaned_block.rfind(']')
+    if end != -1:
+        cleaned_block = cleaned_block[:end+1]
+    
+    print(f"DEBUG: cleaned_block = {cleaned_block}")  # Debug
+    
     try:
-        moves = ast.literal_eval(raw_block)
+        moves = ast.literal_eval(cleaned_block)
     except Exception as e:
         raise ValueError(f"❌ Error al convertir el bloque a lista: {e}")
     
@@ -65,6 +77,8 @@ def simulate_moves(initial_board: list, moves: list) -> list:
 # System prompt
 system_instruction = """
 You are a helpful assistant. Solve this puzzle for me. On a one-dimensional board, there are red checkers (’R’), blue checkers (’B’), and one empty space (’_’). A checker can move by either: 1. Sliding forward into an adjacent empty space, or 2. Jumping over exactly one checker of the opposite color to land in an empty space. The goal is to swap the positions of all red and blue checkers, effectively mirroring the initial state. Example: If the initial state is [’R’, ’_’, ’B’], the goal is to reach [’B’, ’_’, ’R’]. Your solution should be a list of moves where each move is represented as [checker_color, position_from, position_to]. For example: moves = [[’R’, 0, 1], [’B’, 2, 0], [’R’, 1, 2]] position 2 to 0, and so on. Requirements: This means: Move the red checker from position 0 to 1, then move the blue checker from • When exploring potential solutions in your thinking process, always include the corresponding complete list of moves. • The positions are 0-indexed (the leftmost position is 0). • Ensure your final answer includes the complete list of moves for final solution in the format: moves = [[checker_color, position_from, position_to], ...]
+
+IMPORTANT: Your response must be ONLY the list in the exact format 'moves = [[...], [...], ...]' with no additional text, comments, explanations, or variations. Any output with comments, extra text, or different formats is invalid and will not be accepted.
 """
 
 # User prompt
